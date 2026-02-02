@@ -241,7 +241,9 @@ def generate_action_pronunciatio(act_desp, persona):
   if debug: print ("GNS FUNCTION: <generate_action_pronunciatio>")
   try: 
     x = run_gpt_prompt_pronunciatio(act_desp, persona)[0]
-  except: 
+  except Exception:
+    import logging
+    logging.exception("generate_action_pronunciatio failed")
     x = "🙂"
 
   if not x: 

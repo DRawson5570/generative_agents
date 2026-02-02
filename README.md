@@ -11,27 +11,18 @@ This repository accompanies our research paper titled "[Generative Agents: Inter
 ## <img src="https://joonsungpark.s3.amazonaws.com:443/static/assets/characters/profile/Isabella_Rodriguez.png" alt="Generative Isabella">   Setting Up the Environment 
 To set up your environment, you will need to generate a `utils.py` file that contains your OpenAI API key and download the necessary packages.
 
-### Step 1. Generate Utils File
-In the `reverie/backend_server` folder (where `reverie.py` is located), create a new file titled `utils.py` and copy and paste the content below into the file:
+### Step 1. Configure your OpenAI key (recommended)
+For security, we recommend storing secrets in environment variables instead of committing them to files. Create a `.env` file from the provided `.env.example` or export `OPENAI_API_KEY` in your shell.
+
+Example (`.env`):
 ```
-# Copy and paste your OpenAI API Key
-openai_api_key = "<Your OpenAI API>"
-# Put your name
-key_owner = "<Name>"
-
-maze_assets_loc = "../../environment/frontend_server/static_dirs/assets"
-env_matrix = f"{maze_assets_loc}/the_ville/matrix"
-env_visuals = f"{maze_assets_loc}/the_ville/visuals"
-
-fs_storage = "../../environment/frontend_server/storage"
-fs_temp_storage = "../../environment/frontend_server/temp_storage"
-
-collision_block_id = "32125"
-
-# Verbose 
-debug = True
+OPENAI_API_KEY=your_openai_api_key_here
+KEY_OWNER="Your Name"
 ```
-Replace `<Your OpenAI API>` with your OpenAI API key, and `<name>` with your name.
+
+If you prefer the historical `utils.py` approach, the code still supports a `utils.py` with `openai_api_key` defined, but using `OPENAI_API_KEY` is safer and recommended.
+
+(Keep your key private — do not commit `.env` or `utils.py` with real keys.)
  
 ### Step 2. Install requirements.txt
 Install everything listed in the `requirements.txt` file (I strongly recommend first setting up a virtualenv as usual). A note on Python version: we tested our environment on Python 3.9.12. 
@@ -83,6 +74,13 @@ To start the demo, go to the following address on your browser: `http://localhos
 
 ### Tips
 We've noticed that OpenAI's API can hang when it reaches the hourly rate limit. When this happens, you may need to restart your simulation. For now, we recommend saving your simulation often as you progress to ensure that you lose as little of the simulation as possible when you do need to stop and rerun it. Running these simulations, at least as of early 2023, could be somewhat costly, especially when there are many agents in the environment.
+
+### Running tests & linting ✅
+- Install dev requirements: `pip install -r requirements.txt pytest flake8`.
+- Run tests: `pytest -q`.
+- Run linting (focused on core modules): `flake8 reverie/backend_server/persona reverie/backend_server/persona/prompt_template`.
+
+Consider adding `pre-commit` to automatically run `black` and `flake8` on commits. See `CONTRIBUTING.md` for details.
 
 ## <img src="https://joonsungpark.s3.amazonaws.com:443/static/assets/characters/profile/Maria_Lopez.png" alt="Generative Maria">   Simulation Storage Location
 All simulations that you save will be located in `environment/frontend_server/storage`, and all compressed demos will be located in `environment/frontend_server/compressed_storage`. 

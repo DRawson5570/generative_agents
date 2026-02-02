@@ -208,7 +208,9 @@ class AssociativeMemory:
     try: 
       if filling: 
         depth += max([self.id_to_node[i].depth for i in filling])
-    except: 
+    except Exception:
+      import logging
+      logging.exception("add_thought depth computation failed")
       pass
 
     # Creating the <ConceptNode> object.

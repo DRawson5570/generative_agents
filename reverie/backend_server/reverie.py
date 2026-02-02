@@ -270,7 +270,9 @@ class ReverieServer:
           outfile.write(json.dumps(s_mem, indent=2))
         print_tree(s_mem)
 
-      except:
+      except Exception:
+        import logging
+        logging.exception("path tester loop failed")
         pass
 
       time.sleep(self.server_sleep * 10)
@@ -321,7 +323,9 @@ class ReverieServer:
           with open(curr_env_file) as json_file:
             new_env = json.load(json_file)
             env_retrieved = True
-        except: 
+        except Exception:
+          import logging
+          logging.exception("failed to read environment file")
           pass
       
         if env_retrieved: 
