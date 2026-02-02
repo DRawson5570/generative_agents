@@ -19,6 +19,8 @@ OLLAMA_API_URL = os.environ.get("OLLAMA_API_URL", "http://localhost:11434/api/ge
 OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama2")
 COPILOT_API_URL = os.environ.get("COPILOT_API_URL")
 COPILOT_API_KEY = os.environ.get("COPILOT_API_KEY")
+# Default model to use for GitHub Copilot backend when none is specified
+COPILOT_DEFAULT_MODEL = os.environ.get("COPILOT_DEFAULT_MODEL", "grok-code-fast-1")
 
 # Legacy: attempt to import openai_api_key from utils (keeps backward compatibility).
 # Preferred: set OPENAI_API_KEY in your environment (see README and .env.example).
@@ -168,7 +170,9 @@ def Copilot_request(prompt, model=None, timeout=20, repeat=3):
             raise RuntimeError("COPILOT_API_URL not configured and Copilot token exchange failed")
 
     def _call():
-        payload = {"prompt": prompt, "model": model}
+        # If model is not provided, default to the configured Copilot default model
+        _model = model or os.environ.get("COPILOT_DEFAULT_MODEL", COPILOT_DEFAULT_MODEL)
+        payload = {"prompt": prompt, "model": _model}
         r = requests.post(url, json=payload, headers=headers, timeout=timeout)
         r.raise_for_status()
         return r
