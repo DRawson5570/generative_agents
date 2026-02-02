@@ -425,6 +425,62 @@ def safe_generate_response(
     return fail_safe_response
 
 
+def Copilot_get_embedding(text, model=None, timeout=10, resolve_func=None):
+    """Attempt to obtain an embedding from Copilot if the provider exposes an
+    embeddings endpoint. Fallback to OpenAI embeddings when unavailable.
+
+    Behavior:
+    - If env COPILOT_EMBEDDINGS_URL is set, post to it with Authorization token
+      (derived via resolve_func or resolve_copilot_api_token).
+    - Otherwise, try to derive baseUrl using resolve_copilot_api_token and call
+      baseUrl + "/v1/embeddings". If both fail, fallback to OpenAI.
+    """
+    text = text.replace("\n", " ")
+    if not text:
+        text = "this is blank"
+
+    # Allow injection of a resolver for testability
+    resolve_func = resolve_func or (lambda: resolve_copilot_api_token())
+
+    emb_url = os.environ.get("COPILOT_EMBEDDINGS_URL")
+    if emb_url:
+        try:
+            info = resolve_func()
+            headers = {"Authorization": f"Bearer {info['token']}"}
+            payload = {"input": text, "model": model or os.environ.get("COPILOT_DEFAULT_MODEL")}
+            r = requests.post(emb_url, json=payload, headers=headers, timeout=timeout)
+            r.raise_for_status()
+            body = r.json()
+            # Accept various shapes
+            if isinstance(body, dict) and "data" in body:
+                return body["data"][0]["embedding"]
+            if isinstance(body, dict) and "embedding" in body:
+                return body["embedding"]
+        except Exception:
+            logging.exception("Copilot embeddings call failed; falling back to OpenAI")
+
+    # try derived baseUrl embeddings endpoint
+    try:
+        info = resolve_func()
+        base = info.get("baseUrl")
+        if base:
+            url = base.rstrip("/") + "/v1/embeddings"
+            headers = {"Authorization": f"Bearer {info['token']}"}
+            payload = {"input": text, "model": model or os.environ.get("COPILOT_DEFAULT_MODEL")}
+            r = requests.post(url, json=payload, headers=headers, timeout=timeout)
+            r.raise_for_status()
+            body = r.json()
+            if isinstance(body, dict) and "data" in body:
+                return body["data"][0]["embedding"]
+            if isinstance(body, dict) and "embedding" in body:
+                return body["embedding"]
+    except Exception:
+        logging.exception("Copilot embeddings derived baseUrl failed; falling back to OpenAI")
+
+    # Fallback to OpenAI
+    return get_embedding(text, model=(model or "text-embedding-ada-002"))
+
+
 def get_embedding(text, model="text-embedding-ada-002"):
     text = text.replace("\n", " ")
     if not text:
