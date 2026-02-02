@@ -138,20 +138,34 @@ def Ollama_request(prompt, model=None, timeout=20, repeat=3):
         return "ChatGPT ERROR"
 
 
+from persona.prompt_template.copilot_token import resolve_copilot_api_token
+
+
 def Copilot_request(prompt, model=None, timeout=20, repeat=3):
-    """Call a configured Copilot HTTP endpoint (user must set COPILOT_API_URL).
+    """Call a configured Copilot HTTP endpoint.
 
-    Note: GitHub Copilot API shape may differ; this is a small adapter that
-    expects a `COPILOT_API_URL` and optional `COPILOT_API_KEY`.
+    Two modes:
+    - If `COPILOT_API_URL` env var is set, use it directly (proxy mode).
+    - Otherwise, attempt to exchange a GitHub token (COPILOT_GITHUB_TOKEN / GH_TOKEN / GITHUB_TOKEN)
+      for a Copilot token and derived base URL using `resolve_copilot_api_token`.
+
+    The function injects `Authorization: Bearer <copilot_token>` into requests.
     """
-    url = os.environ.get("COPILOT_API_URL")
-    if not url:
-        raise RuntimeError("COPILOT_API_URL not configured in environment")
-
-    key = os.environ.get("COPILOT_API_KEY")
+    # 1) explicit override
+    explicit_url = os.environ.get("COPILOT_API_URL")
     headers = {}
-    if key:
-        headers["Authorization"] = f"Bearer {key}"
+
+    if explicit_url:
+        url = explicit_url
+    else:
+        # Try to resolve via GitHub token exchange
+        try:
+            info = resolve_copilot_api_token()
+            url = info["baseUrl"]
+            token = info["token"]
+            headers["Authorization"] = f"Bearer {token}"
+        except Exception:
+            raise RuntimeError("COPILOT_API_URL not configured and Copilot token exchange failed")
 
     def _call():
         payload = {"prompt": prompt, "model": model}
@@ -161,10 +175,8 @@ def Copilot_request(prompt, model=None, timeout=20, repeat=3):
 
     try:
         resp = _openai_with_backoff(lambda **kw: _call(), repeat=repeat, backoff_factor=1)
-        # Try parse common shapes
         try:
             body = resp.json()
-            # expect something like {'result': '...'} or {'text': '...'}
             return body.get("result") or body.get("output") or body.get("text") or json.dumps(body)
         except Exception:
             return resp.text
