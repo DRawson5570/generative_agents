@@ -11,6 +11,14 @@ import os
 import time
 import logging
 import openai
+import requests
+
+# Backends: 'openai' (default), 'ollama', 'copilot'
+LLM_BACKEND = os.environ.get("LLM_BACKEND", "openai").lower()
+OLLAMA_API_URL = os.environ.get("OLLAMA_API_URL", "http://localhost:11434/api/generate")
+OLLAMA_MODEL = os.environ.get("OLLAMA_MODEL", "llama2")
+COPILOT_API_URL = os.environ.get("COPILOT_API_URL")
+COPILOT_API_KEY = os.environ.get("COPILOT_API_KEY")
 
 # Legacy: attempt to import openai_api_key from utils (keeps backward compatibility).
 # Preferred: set OPENAI_API_KEY in your environment (see README and .env.example).
@@ -80,8 +88,103 @@ def GPT4_request(prompt, timeout=20, repeat=3):
         return "ChatGPT ERROR"
 
 
+def _ollama_parse_response(resp):
+    """Try to parse common Ollama response shapes and return text content."""
+    try:
+        body = resp.json()
+    except Exception:
+        # not JSON; return raw text
+        return resp.text
+
+    # Try common shapes
+    if isinstance(body, dict):
+        if "results" in body and isinstance(body["results"], list):
+            first = body["results"][0]
+            # content nested in different keys depending on Ollama version
+            return (
+                first.get("content")
+                or first.get("output")
+                or first.get("text")
+                or json.dumps(first)
+            )
+        if "output" in body:
+            return body["output"]
+        if "text" in body:
+            return body["text"]
+        # Fallback to JSON string
+        return json.dumps(body)
+    return str(body)
+
+
+def Ollama_request(prompt, model=None, timeout=20, repeat=3):
+    """Call an Ollama HTTP endpoint and return the generated text.
+
+    This implementation is intentionally permissive about the exact JSON
+    shape returned by different Ollama versions; tests mock `requests.post`.
+    """
+    url = os.environ.get("OLLAMA_API_URL", OLLAMA_API_URL)
+
+    def _call():
+        payload = {"model": model or os.environ.get("OLLAMA_MODEL", OLLAMA_MODEL), "prompt": prompt}
+        r = requests.post(url, json=payload, timeout=timeout)
+        r.raise_for_status()
+        return r
+
+    try:
+        resp = _openai_with_backoff(lambda **kw: _call(), repeat=repeat, backoff_factor=1)
+        return _ollama_parse_response(resp)
+    except Exception:
+        logging.exception("Ollama request failed")
+        return "ChatGPT ERROR"
+
+
+def Copilot_request(prompt, model=None, timeout=20, repeat=3):
+    """Call a configured Copilot HTTP endpoint (user must set COPILOT_API_URL).
+
+    Note: GitHub Copilot API shape may differ; this is a small adapter that
+    expects a `COPILOT_API_URL` and optional `COPILOT_API_KEY`.
+    """
+    url = os.environ.get("COPILOT_API_URL")
+    if not url:
+        raise RuntimeError("COPILOT_API_URL not configured in environment")
+
+    key = os.environ.get("COPILOT_API_KEY")
+    headers = {}
+    if key:
+        headers["Authorization"] = f"Bearer {key}"
+
+    def _call():
+        payload = {"prompt": prompt, "model": model}
+        r = requests.post(url, json=payload, headers=headers, timeout=timeout)
+        r.raise_for_status()
+        return r
+
+    try:
+        resp = _openai_with_backoff(lambda **kw: _call(), repeat=repeat, backoff_factor=1)
+        # Try parse common shapes
+        try:
+            body = resp.json()
+            # expect something like {'result': '...'} or {'text': '...'}
+            return body.get("result") or body.get("output") or body.get("text") or json.dumps(body)
+        except Exception:
+            return resp.text
+    except Exception:
+        logging.exception("Copilot request failed")
+        return "ChatGPT ERROR"
+
+
 def ChatGPT_request(prompt, timeout=15, repeat=3):
-    """Make a ChatGPT (gpt-3.5-turbo) request with retries and timeout."""
+    """Make a ChatGPT (gpt-3.5-turbo) request with retries and timeout.
+
+    If environment `LLM_BACKEND` is set to `ollama` or `copilot`, dispatch to
+    the respective adapter so the rest of the codebase can remain unchanged.
+    """
+    backend = os.environ.get("LLM_BACKEND", "openai").lower()
+    if backend == "ollama":
+        return Ollama_request(prompt, timeout=timeout, repeat=repeat)
+    if backend == "copilot":
+        return Copilot_request(prompt, timeout=timeout, repeat=repeat)
+
     try:
         completion = _openai_with_backoff(
             lambda **kw: openai.ChatCompletion.create(**kw),
