@@ -15,9 +15,13 @@ import sys
 
 sys.path.append("../../")
 
-from global_methods import *
-from persona.prompt_template.gpt_structure import *
-from persona.prompt_template.print_prompt import *
+# Explicit imports to replace wildcard imports in this defunct module.
+from persona.prompt_template.gpt_structure import (
+    generate_prompt,
+    safe_generate_response,
+    ChatGPT_safe_generate_response,
+)
+from persona.prompt_template.print_prompt import print_run_prompts
 
 
 def get_random_alphanumeric(i=6, j=6):

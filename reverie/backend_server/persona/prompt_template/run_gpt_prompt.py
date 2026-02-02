@@ -14,9 +14,14 @@ import ast
 
 sys.path.append("../../")
 
-from global_methods import *  # noqa: F403
-from persona.prompt_template.gpt_structure import *  # noqa: F403
-from persona.prompt_template.print_prompt import *  # noqa: F403
+# Use explicit imports instead of wildcard imports to improve static
+# analysis and avoid F405 errors from flake8.
+from persona.prompt_template.gpt_structure import (
+    generate_prompt,
+    safe_generate_response,
+    ChatGPT_safe_generate_response,
+)
+from persona.prompt_template.print_prompt import print_run_prompts
 
 # Add explicit stdlib imports to help static analysis for commonly used names
 import random
