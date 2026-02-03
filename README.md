@@ -23,7 +23,9 @@ KEY_OWNER="Your Name"
 If you prefer the historical `utils.py` approach, the code still supports a `utils.py` with `openai_api_key` defined, but using `OPENAI_API_KEY` is safer and recommended.
 
 (Keep your key private — do not commit `.env` or `utils.py` with real keys.)
- 
+
+If you prefer to run local models, see the Ollama docs in `docs/providers/ollama.md` for instructions on using a 7/8B model (we support setting `LLM_BACKEND=ollama`).
+
 ### Step 2. Install requirements.txt
 Install everything listed in the `requirements.txt` file (I strongly recommend first setting up a virtualenv as usual). A note on Python version: we tested our environment on Python 3.9.12. 
 
